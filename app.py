@@ -29,8 +29,9 @@ PLANT_COORDS = {
     "BEA": {"name": "Beazley",        "lat": -33.500, "lon": -66.220},  # Beazley, San Luis
     "BEL": {"name": "Leones",         "lat": -32.650, "lon": -62.283},  # San Jerónimo, Córdoba (RN9 km456)
     "COC": {"name": "Cochico",        "lat": -36.250, "lon": -66.930},  # Santa Isabel, La Pampa
-    "DEA": {"name": "Dean Funes",     "lat": -30.424, "lon": -64.356},  # Dean Funes, Córdoba
-    "FER": {"name": "Ferreyra",       "lat": -30.882, "lon": -64.071},  # Capilla de Remedios, Córdoba
+    "DEA": {"name": "Dean Funes",     "lat": -30.424, "lon": -64.350},  # Dean Funes, Córdoba
+    "CHA": {"name": "Chaján",         "lat": -33.582, "lon": -64.982},  # Chaján, Córdoba (RN8 km692)
+    "FER": {"name": "Ferreyra",       "lat": -31.430, "lon": -63.817},  # Capilla de Remedios, Córdoba
     "JER": {"name": "San Jerónimo",   "lat": -33.666, "lon": -61.050},  # San Jerónimo Sud, Santa Fe
     "LCA": {"name": "La Carlota",     "lat": -33.420, "lon": -63.316},  # La Carlota, Córdoba
     "LMR": {"name": "La Mora",        "lat": -34.967, "lon": -67.700},  # General Alvear, Mendoza
@@ -42,6 +43,7 @@ PLANT_COORDS = {
     "REC": {"name": "Recreo",         "lat": -29.264, "lon": -65.063},  # Recreo, Catamarca
     "RLB": {"name": "Río Las Burras", "lat": -24.695, "lon": -66.178},  # La Poma, Salta
     "TIO": {"name": "Tío Pujio",      "lat": -32.317, "lon": -63.333},  # Tío Pujio, Córdoba
+
     "TUC": {"name": "Tucumán",        "lat": -26.683, "lon": -65.150},  # Cevil Pozo, Tucumán
 }
 
@@ -194,12 +196,17 @@ if "df" not in st.session_state:
 df_global = st.session_state.get("df")
 
 # ── Header ─────────────────────────────────────────────────────────────────────
-col_logo, col_title = st.columns([1, 8])
-with col_logo:
-    st.image("https://i.imgur.com/RDfxCkp.jpg", width=90)
-with col_title:
-    st.markdown("## 🛢️ TGN · Dashboard Análisis de Lubricantes")
-    st.markdown("**Transportadora de Gas del Norte S.A.** · Gerencia de Mantenimiento")
+st.markdown("""
+<div style="text-align:center; padding: 10px 0 20px 0;">
+    <img src="https://i.imgur.com/RDfxCkp.jpg" width="110" style="margin-bottom:12px;display:block;margin-left:auto;margin-right:auto;">
+    <div style="font-size:2.2rem; font-weight:700; color:#e8edf2; letter-spacing:-0.5px;">🛢️ Dashboard · Análisis de Lubricantes</div>
+    <div style="font-size:1rem; color:#78909c; margin-top:6px;">
+        <b style="color:#90a4ae;">Transportadora de Gas del Norte S.A.</b>
+        &nbsp;·&nbsp; Análisis de Condición
+        &nbsp;·&nbsp; Gerencia de Mantenimiento
+    </div>
+</div>
+""", unsafe_allow_html=True)
 st.markdown("---")
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
@@ -224,8 +231,22 @@ with tab_main:
         plant_status = plant_worst_status(df_global)
 
         # Build map
-        m = folium.Map(location=[-34.0, -64.0], zoom_start=5,
-                       tiles="CartoDB dark_matter")
+        m = folium.Map(
+            location=[-34.0, -64.0],
+            zoom_start=5,
+            tiles=None
+        )
+        # Fondo oscuro pero más brillante
+        folium.TileLayer(
+            tiles="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
+            attr="CartoDB",
+            opacity=0.6
+        ).add_to(m)
+        folium.TileLayer(
+            tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+            attr="CartoDB Labels",
+            opacity=1.0
+        ).add_to(m)
 
         for cod, info in PLANT_COORDS.items():
             status = plant_status.get(cod, "NORMAL")
@@ -271,8 +292,8 @@ with tab_main:
                 color=color,
                 fill=True,
                 fill_color=color,
-                fill_opacity=0.85,
-                weight=2,
+                fill_opacity=0.95,
+                weight=3,
                 popup=folium.Popup(popup_html, max_width=420),
                 tooltip=f"{cod} — {status}",
             ).add_to(m)
