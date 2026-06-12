@@ -22,7 +22,7 @@ GITHUB_REPO   = "dashboard-lubricantes-tgn-"
 GITHUB_BRANCH = "main"
 DB_FILE       = "database.csv"
 ADMIN_USER    = "Admin"
-ADMIN_PASS    = "Admin"
+ADMIN_PASS    = "Admin123"
 
 PLANT_COORDS = {
     "BAL": {"name": "Baldissera",     "lat": -33.532, "lon": -62.300},  # General Baldissera, Córdoba
