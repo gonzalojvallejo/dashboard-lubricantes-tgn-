@@ -489,13 +489,15 @@ with tab_detalle:
             if not dff_equipo.empty:
                 dff = dff_equipo
 
+        n_sv = (dff["overall"] == "SEVERE").sum()
         n_ab = (dff["overall"] == "ABNORMAL").sum()
         n_mg = (dff["overall"] == "MARGINAL").sum()
         n_ok = (dff["overall"] == "NORMAL").sum()
 
-        tab_ab, tab_mg, tab_ok, tab_all = st.tabs([
+        tab_sv, tab_ab, tab_mg, tab_ok, tab_all = st.tabs([
+            f"🔴 Severos ({n_sv})",
             f"🟠 Anormales ({n_ab})",
-            f"🔴 Marginales ({n_mg})",
+            f"🟡 Marginales ({n_mg})",
             f"🟢 Normales ({n_ok})",
             f"📋 Todos ({len(dff)})"
         ])
@@ -535,6 +537,7 @@ with tab_detalle:
                 </div>
                 """, unsafe_allow_html=True)
 
+        with tab_sv: render_cards(dff[dff["overall"] == "SEVERE"])
         with tab_ab: render_cards(dff[dff["overall"] == "ABNORMAL"])
         with tab_mg: render_cards(dff[dff["overall"] == "MARGINAL"])
         with tab_ok: render_cards(dff[dff["overall"] == "NORMAL"])
