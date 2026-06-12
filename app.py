@@ -34,7 +34,7 @@ PLANT_COORDS = {
     "FER": {"name": "Ferreyra",       "lat": -31.430, "lon": -63.817},  # Capilla de Remedios, Córdoba
     "JER": {"name": "San Jerónimo",   "lat": -32.879, "lon": -61.023},  # San Jerónimo Sud, Santa Fe
     "LCA": {"name": "La Carlota",     "lat": -33.420, "lon": -63.316},  # La Carlota, Córdoba
-    "LMR": {"name": "La Mora",        "lat": -34.967, "lon": -67.700},  # General Alvear, Mendoza
+    "LMR": {"name": "La Mora",        "lat": -35.000, "lon": -66.787},  # La Mora, entre BEA y COC
     "LPZ": {"name": "La Paz",         "lat": -33.467, "lon": -67.550},  # La Paz, Mendoza (ok)
     "LUM": {"name": "Lumbreras",      "lat": -25.033, "lon": -64.733},  # Lumbreras, Salta
     "LAV": {"name": "Lavalle",        "lat": -28.200, "lon": -65.117},  # Lavalle, Santiago del Estero
@@ -360,8 +360,46 @@ with tab_main:
 
         st.markdown("#### 🗺️ Estado de plantas — hacé clic en un punto para ver el detalle")
         map_data = st_folium(m, width="100%", height=620, returned_objects=["last_object_clicked_popup"])
-        # Note: direct tab switching via popup click requires JS bridge - 
-        # users can click equipment names in popup which highlights them in Detalle tab
+
+        # Show equipment detail below map when selected
+        _sel = st.session_state.get("selected_equipo")
+        if _sel and df_global is not None:
+            st.markdown("---")
+            eq_data = get_latest_per_equipment(df_global)
+            eq_data = eq_data[eq_data["equipo"] == _sel]
+            if not eq_data.empty:
+                row = eq_data.iloc[0]
+                status = row["overall"]
+                fecha_str = row["fecha_muestra"].strftime("%d/%m/%Y") if pd.notna(row.get("fecha_muestra")) else "—"
+                edad_str = f"{int(row['edad_fluido']):,} hrs" if pd.notna(row.get("edad_fluido")) else "—"
+                rec = str(row.get("recomendacion","") or "—")
+                desgaste = str(row.get("desgaste","") or "")
+                contam = str(row.get("contaminacion","") or "")
+                cond = str(row.get("condicion_aceite","") or "")
+                extras = "".join(
+                    f'<div class="equip-rec"><b style="color:#78909c">{lbl}:</b> {txt}</div>'
+                    for lbl, txt in [("⚙️ Desgaste", desgaste),("💧 Contaminación", contam),("🧪 Cond. Aceite", cond)]
+                    if txt.strip()
+                )
+                st.markdown(f"""
+                <div class="equip-card {status}">
+                  <div style="display:flex;justify-content:space-between;align-items:center">
+                    <span class="equip-name">📋 {row.get('planta_cod','—')} · {row.get('equipo_tag','—')}</span>
+                    <span class="status-badge badge-{status}">{status}</span>
+                  </div>
+                  <div class="equip-detail">
+                    🏭 {row.get('area','—')} &nbsp;|&nbsp;
+                    🔩 {row.get('componente_es','—')} &nbsp;|&nbsp;
+                    🛢️ {row.get('lubricante','—')} &nbsp;|&nbsp;
+                    📅 {fecha_str} &nbsp;|&nbsp; ⏱️ {edad_str}
+                  </div>
+                  <div class="equip-rec"><b style="color:#78909c">📌 Recomendación:</b> {rec}</div>
+                  {extras}
+                </div>
+                """, unsafe_allow_html=True)
+            if st.button("✖ Cerrar detalle"):
+                st.session_state["selected_equipo"] = None
+                st.rerun()
 
         # Summary below map
         st.markdown("---")
