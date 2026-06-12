@@ -26,7 +26,7 @@ ADMIN_PASS    = "Admin"
 
 PLANT_COORDS = {
     "BAL": {"name": "Baldissera",     "lat": -33.532, "lon": -62.300},  # General Baldissera, Córdoba
-    "BEA": {"name": "Beazley",        "lat": -33.758, "lon": -66.645},  # Beazley, San Luis (RN146 km183)
+    "BEA": {"name": "Beazley",        "lat": -33.383, "lon": -65.383},  # Beazley, San Luis (RN146 km188)
     "BEL": {"name": "Leones",         "lat": -32.650, "lon": -62.283},  # San Jerónimo, Córdoba (RN9 km456)
     "COC": {"name": "Cochico",        "lat": -36.250, "lon": -66.930},  # Santa Isabel, La Pampa
     "DEA": {"name": "Dean Funes",     "lat": -30.424, "lon": -64.350},  # Dean Funes, Córdoba
@@ -35,7 +35,7 @@ PLANT_COORDS = {
     "JER": {"name": "San Jerónimo",   "lat": -32.879, "lon": -61.023},  # San Jerónimo Sud, Santa Fe
     "LCA": {"name": "La Carlota",     "lat": -33.420, "lon": -63.316},  # La Carlota, Córdoba
     "LMR": {"name": "La Mora",        "lat": -34.967, "lon": -67.700},  # General Alvear, Mendoza
-    "LPZ": {"name": "La Paz",         "lat": -33.467, "lon": -67.550},  # La Paz, Mendoza
+    "LPZ": {"name": "La Paz",         "lat": -33.467, "lon": -67.550},  # La Paz, Mendoza (ok)
     "LUM": {"name": "Lumbreras",      "lat": -25.033, "lon": -64.733},  # Lumbreras, Salta
     "LAV": {"name": "Lavalle",        "lat": -28.200, "lon": -65.117},  # Lavalle, Santiago del Estero
     "PIC": {"name": "Pichanal",       "lat": -23.317, "lon": -64.217},  # Pichanal, Salta
@@ -63,9 +63,9 @@ COMPONENT_ES = {
     "Reciprocating Compressor": "Compresor Reciprocante", "Coolant": "Refrigerante",
 }
 
-STATUS_ORDER  = {"ABNORMAL": 0, "MARGINAL": 1, "NORMAL": 2}
-STATUS_COLOR  = {"NORMAL": "#4caf50", "MARGINAL": "#f44336", "ABNORMAL": "#ff9800"}
-STATUS_MAP_COLOR = {"NORMAL": "green", "MARGINAL": "red", "ABNORMAL": "orange"}
+STATUS_ORDER  = {"SEVERE": 0, "ABNORMAL": 1, "MARGINAL": 2, "NORMAL": 3}
+STATUS_COLOR  = {"NORMAL": "#4caf50", "MARGINAL": "#f44336", "ABNORMAL": "#ff9800", "SEVERE": "#d32f2f"}
+STATUS_MAP_COLOR = {"NORMAL": "green", "MARGINAL": "red", "ABNORMAL": "orange", "SEVERE": "darkred"}
 
 # ── CSS ────────────────────────────────────────────────────────────────────────
 st.markdown("""
@@ -83,11 +83,13 @@ p, label, div { color: #b0bec5; }
 [data-testid="stMetricValue"] { font-size: 2rem !important; font-weight: 700; }
 .equip-card { border-radius: 10px; padding: 14px 16px; margin-bottom: 10px; border-left: 5px solid #555; background: #111d2c; }
 .equip-card.NORMAL   { border-color: #4caf50; background: #0f1f12; }
-.equip-card.MARGINAL { border-color: #f44336; background: #1f0f0f; }
+.equip-card.SEVERE   { border-color: #d32f2f; background: #2a0000; }
+    .equip-card.MARGINAL { border-color: #f44336; background: #1f0f0f; }
 .equip-card.ABNORMAL { border-color: #ff9800; background: #1f1a0f; }
 .status-badge { display:inline-block; padding:3px 12px; border-radius:12px; font-weight:700; font-size:0.78rem; }
 .badge-NORMAL   { background:#1b5e20; color:#a5d6a7; }
-.badge-MARGINAL { background:#b71c1c; color:#ef9a9a; }
+.badge-SEVERE   { background:#7b0000; color:#ff8a80; }
+    .badge-MARGINAL { background:#b71c1c; color:#ef9a9a; }
 .badge-ABNORMAL { background:#e65100; color:#ffcc80; }
 .equip-name   { font-size:1rem; font-weight:600; color:#e0e7ef; }
 .equip-detail { font-size:0.82rem; color:#90a4ae; margin-top:4px; }
@@ -215,6 +217,12 @@ st.markdown("""
 st.markdown("---")
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
+# Check if redirected from map popup
+_qp = st.query_params
+if "equipo" in _qp and st.session_state.get("selected_equipo") != _qp["equipo"]:
+    st.session_state["selected_equipo"] = _qp["equipo"]
+    st.session_state["selected_tab"] = 1
+
 tab_main, tab_detalle, tab_kpi, tab_admin = st.tabs([
     "🗺️  Mapa de Plantas",
     "🔎  Detalle por Equipo",
@@ -270,10 +278,11 @@ with tab_main:
                 html = ""
                 for _, r in rows.iterrows():
                     s = r.get("overall", "")
-                    c = {"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800"}.get(s,"#aaa")
-                    eq = r.get("equipo","").replace('"',"'")
-                    html += f"""<tr style='cursor:pointer' onclick='window.parent.postMessage({{type:"streamlit:setComponentValue",value:"{eq}"}}, "*")'>
-                        <td style='padding:3px 8px;color:#64b5f6;text-decoration:underline'>{r.get('equipo_tag','')}</td>
+                    c = {"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800","SEVERE":"#d32f2f"}.get(s,"#aaa")
+                    eq = str(r.get("equipo","")).replace('"',"'").replace(" ","%20")
+                    current_url = "?"
+                    html += f"""<tr style='cursor:pointer' onclick='window.open(window.location.origin+window.location.pathname+"?equipo={eq}","_self")'>
+                        <td style='padding:3px 8px;color:#64b5f6;text-decoration:underline;cursor:pointer'>{r.get('equipo_tag','')}</td>
                         <td style='padding:3px 6px'>{r.get('componente_es','')}</td>
                         <td style='padding:3px 6px;color:{c};font-weight:bold'>{s}</td></tr>"""
                 return html
@@ -374,8 +383,17 @@ with tab_detalle:
         dff["sort_key"] = dff["overall"].map(STATUS_ORDER).fillna(3)
         dff = dff.sort_values("sort_key")
 
+        # Check if coming from map popup click
+        _selected_eq = st.session_state.get("selected_equipo")
+        if _selected_eq:
+            st.info(f"📍 Mostrando: **{_selected_eq}** — [Ver todos](javascript:void(0))")
+            if st.button("✖ Limpiar filtro de mapa"):
+                st.session_state["selected_equipo"] = None
+                st.query_params.clear()
+                st.rerun()
+
         # Filters
-        with st.expander("🔍 Filtros", expanded=True):
+        with st.expander("🔍 Filtros", expanded=not bool(_selected_eq)):
             fc1, fc2, fc3, fc4 = st.columns(4)
             plantas    = sorted(dff["planta_cod"].dropna().unique())
             areas      = sorted(dff["area"].dropna().unique()) if "area" in dff.columns else []
@@ -402,6 +420,13 @@ with tab_detalle:
 
         if solo_ultimo:
             dff = get_latest_per_equipment(dff)
+
+        # Filter by selected equipment from map
+        _selected_eq = st.session_state.get("selected_equipo")
+        if _selected_eq:
+            dff_equipo = dff[dff["equipo"] == _selected_eq]
+            if not dff_equipo.empty:
+                dff = dff_equipo
 
         n_ab = (dff["overall"] == "ABNORMAL").sum()
         n_mg = (dff["overall"] == "MARGINAL").sum()
@@ -507,7 +532,7 @@ with tab_kpi:
         with ch2:
             st.markdown("##### Tipo de problema")
             PROBLEM_COLORS = {"Normal":"#4caf50","Wear":"#ff9800","ISO":"#ff9800",
-                              "Insolubles":"#f44336","Degradation":"#f44336"}
+                              "Insolubles":"#f44336","Degradation":"#f44336","Severe":"#d32f2f"}
             prob_data = df_k["problema"].value_counts().reset_index()
             prob_data.columns = ["Problema","Cantidad"]
             fig2 = px.bar(prob_data, x="Cantidad", y="Problema", orientation="h",
