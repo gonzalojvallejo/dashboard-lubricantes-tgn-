@@ -559,19 +559,21 @@ with tab_kpi:
     else:
         df_k = get_latest_per_equipment(df_global)
         total = len(df_k)
+        n_sv  = (df_k["overall"] == "SEVERE").sum()
         n_ab  = (df_k["overall"] == "ABNORMAL").sum()
         n_mg  = (df_k["overall"] == "MARGINAL").sum()
         n_ok  = (df_k["overall"] == "NORMAL").sum()
         pct_ok = round(n_ok / total * 100) if total else 0
-        pct_crit = round((n_ab + n_mg) / total * 100) if total else 0
+        pct_crit = round((n_sv + n_ab + n_mg) / total * 100) if total else 0
 
         # KPI cards row 1
-        k1, k2, k3, k4, k5 = st.columns(5)
+        k1, k2, k3, k4, k5, k6 = st.columns(6)
         k1.metric("📋 Equipos monitoreados", total)
-        k2.metric("🟠 Anormales", n_ab, delta=f"{round(n_ab/total*100)}%", delta_color="inverse")
-        k3.metric("🔴 Marginales", n_mg, delta=f"{round(n_mg/total*100)}%", delta_color="inverse")
-        k4.metric("🟢 Normales", n_ok, delta=f"{round(n_ok/total*100)}%", delta_color="normal")
-        k5.metric("✅ Confiabilidad flota", f"{pct_ok}%")
+        k2.metric("🔴 Severos",   n_sv, delta=f"{round(n_sv/total*100)}%" if total else "0%", delta_color="inverse")
+        k3.metric("🟠 Anormales", n_ab, delta=f"{round(n_ab/total*100)}%" if total else "0%", delta_color="inverse")
+        k4.metric("🟡 Marginales",n_mg, delta=f"{round(n_mg/total*100)}%" if total else "0%", delta_color="inverse")
+        k5.metric("🟢 Normales",  n_ok, delta=f"{round(n_ok/total*100)}%" if total else "0%", delta_color="normal")
+        k6.metric("✅ Confiabilidad flota", f"{pct_ok}%")
 
         st.markdown("---")
 
@@ -580,11 +582,12 @@ with tab_kpi:
 
         with ch1:
             st.markdown("##### Estado general de flota")
-            pie_data = pd.DataFrame({"Estado": ["ABNORMAL","MARGINAL","NORMAL"],
-                                     "Cantidad": [n_ab, n_mg, n_ok]})
+            pie_data = pd.DataFrame({"Estado": ["SEVERE","ABNORMAL","MARGINAL","NORMAL"],
+                                     "Cantidad": [n_sv, n_ab, n_mg, n_ok]})
+            pie_data = pie_data[pie_data["Cantidad"] > 0]
             fig = px.pie(pie_data, names="Estado", values="Cantidad",
                          color="Estado",
-                         color_discrete_map={"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800"},
+                         color_discrete_map={"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800","SEVERE":"#d32f2f"},
                          hole=0.55)
             fig.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                               font_color="#b0bec5", showlegend=True,
@@ -611,11 +614,11 @@ with tab_kpi:
         with ch3:
             st.markdown("##### Estado por planta")
             pivot = df_k.groupby(["planta_cod","overall"]).size().unstack(fill_value=0)
-            for s in ["ABNORMAL","MARGINAL","NORMAL"]:
+            for s in ["SEVERE","ABNORMAL","MARGINAL","NORMAL"]:
                 if s not in pivot.columns: pivot[s] = 0
-            pivot = pivot[["ABNORMAL","MARGINAL","NORMAL"]].sort_values("ABNORMAL", ascending=False)
+            pivot = pivot[["SEVERE","ABNORMAL","MARGINAL","NORMAL"]].sort_values("SEVERE", ascending=False)
             fig3 = go.Figure()
-            for estado, color in [("ABNORMAL","#ff9800"),("MARGINAL","#f44336"),("NORMAL","#4caf50")]:
+            for estado, color in [("SEVERE","#d32f2f"),("ABNORMAL","#ff9800"),("MARGINAL","#f44336"),("NORMAL","#4caf50")]:
                 fig3.add_trace(go.Bar(name=estado, x=pivot.index, y=pivot[estado],
                                       marker_color=color, marker_line_width=0))
             fig3.update_layout(barmode="stack", paper_bgcolor="rgba(0,0,0,0)",
@@ -635,11 +638,11 @@ with tab_kpi:
             st.markdown("##### Estado por tipo de componente")
             if "componente_es" in df_k.columns:
                 pivot2 = df_k.groupby(["componente_es","overall"]).size().unstack(fill_value=0)
-                for s in ["ABNORMAL","MARGINAL","NORMAL"]:
+                for s in ["SEVERE","ABNORMAL","MARGINAL","NORMAL"]:
                     if s not in pivot2.columns: pivot2[s] = 0
-                pivot2 = pivot2[["ABNORMAL","MARGINAL","NORMAL"]]
+                pivot2 = pivot2[["SEVERE","ABNORMAL","MARGINAL","NORMAL"]]
                 fig4 = go.Figure()
-                for estado, color in [("ABNORMAL","#ff9800"),("MARGINAL","#f44336"),("NORMAL","#4caf50")]:
+                for estado, color in [("SEVERE","#d32f2f"),("ABNORMAL","#ff9800"),("MARGINAL","#f44336"),("NORMAL","#4caf50")]:
                     fig4.add_trace(go.Bar(name=estado, y=pivot2.index, x=pivot2[estado],
                                           orientation="h", marker_color=color, marker_line_width=0))
                 fig4.update_layout(barmode="stack", paper_bgcolor="rgba(0,0,0,0)",
@@ -654,9 +657,9 @@ with tab_kpi:
             if "edad_fluido" in df_k.columns:
                 edad_data = df_k.groupby("overall")["edad_fluido"].mean().reset_index()
                 edad_data.columns = ["Estado","Edad promedio (hrs)"]
-                edad_data["Color"] = edad_data["Estado"].map(STATUS_COLOR)
+                COLOR_MAP = {"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800","SEVERE":"#d32f2f"}
                 fig5 = px.bar(edad_data, x="Estado", y="Edad promedio (hrs)",
-                              color="Estado", color_discrete_map=STATUS_COLOR)
+                              color="Estado", color_discrete_map=COLOR_MAP)
                 fig5.update_layout(paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
                                    font_color="#b0bec5", showlegend=False,
                                    margin=dict(t=10,b=10,l=10,r=10), height=300,
@@ -688,7 +691,7 @@ with tab_kpi:
                 df_hist["mes"] = df_hist["fecha_muestra"].dt.to_period("M").astype(str)
                 hist_data = df_hist.groupby(["mes","overall"]).size().unstack(fill_value=0).reset_index()
                 fig7 = go.Figure()
-                for estado, color in [("ABNORMAL","#ff9800"),("MARGINAL","#f44336"),("NORMAL","#4caf50")]:
+                for estado, color in [("SEVERE","#d32f2f"),("ABNORMAL","#ff9800"),("MARGINAL","#f44336"),("NORMAL","#4caf50")]:
                     if estado in hist_data.columns:
                         fig7.add_trace(go.Bar(name=estado, x=hist_data["mes"], y=hist_data[estado],
                                               marker_color=color, marker_line_width=0))
