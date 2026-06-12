@@ -26,13 +26,13 @@ ADMIN_PASS    = "Admin"
 
 PLANT_COORDS = {
     "BAL": {"name": "Baldissera",     "lat": -33.532, "lon": -62.300},  # General Baldissera, Córdoba
-    "BEA": {"name": "Beazley",        "lat": -33.500, "lon": -66.220},  # Beazley, San Luis
+    "BEA": {"name": "Beazley",        "lat": -33.758, "lon": -66.645},  # Beazley, San Luis (RN146 km183)
     "BEL": {"name": "Leones",         "lat": -32.650, "lon": -62.283},  # San Jerónimo, Córdoba (RN9 km456)
     "COC": {"name": "Cochico",        "lat": -36.250, "lon": -66.930},  # Santa Isabel, La Pampa
     "DEA": {"name": "Dean Funes",     "lat": -30.424, "lon": -64.350},  # Dean Funes, Córdoba
     "CHA": {"name": "Chaján",         "lat": -33.582, "lon": -64.982},  # Chaján, Córdoba (RN8 km692)
     "FER": {"name": "Ferreyra",       "lat": -31.430, "lon": -63.817},  # Capilla de Remedios, Córdoba
-    "JER": {"name": "San Jerónimo",   "lat": -33.666, "lon": -61.050},  # San Jerónimo Sud, Santa Fe
+    "JER": {"name": "San Jerónimo",   "lat": -32.879, "lon": -61.023},  # San Jerónimo Sud, Santa Fe
     "LCA": {"name": "La Carlota",     "lat": -33.420, "lon": -63.316},  # La Carlota, Córdoba
     "LMR": {"name": "La Mora",        "lat": -34.967, "lon": -67.700},  # General Alvear, Mendoza
     "LPZ": {"name": "La Paz",         "lat": -33.467, "lon": -67.550},  # La Paz, Mendoza
@@ -189,6 +189,11 @@ def status_badge(status):
     return f'<span class="status-badge badge-{status}">{status}</span>'
 
 # ── Load data ──────────────────────────────────────────────────────────────────
+if "selected_tab" not in st.session_state:
+    st.session_state["selected_tab"] = 0
+if "selected_equipo" not in st.session_state:
+    st.session_state["selected_equipo"] = None
+
 if "df" not in st.session_state:
     db = load_db_from_github()
     st.session_state["df"] = db
@@ -236,16 +241,18 @@ with tab_main:
             zoom_start=5,
             tiles=None
         )
-        # Fondo oscuro pero más brillante
+        # Base oscura con brillo mejorado
         folium.TileLayer(
             tiles="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
-            attr="CartoDB",
-            opacity=0.6
+            attr="© CartoDB © OpenStreetMap",
+            opacity=0.55
         ).add_to(m)
+        # Solo labels de ciudades principales / capitales de provincia
         folium.TileLayer(
-            tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
-            attr="CartoDB Labels",
-            opacity=1.0
+            tiles="https://stamen-tiles-{s}.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png",
+            attr="© Stamen Design",
+            opacity=0.5,
+            name="labels"
         ).add_to(m)
 
         for cod, info in PLANT_COORDS.items():
@@ -264,7 +271,11 @@ with tab_main:
                 for _, r in rows.iterrows():
                     s = r.get("overall", "")
                     c = {"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800"}.get(s,"#aaa")
-                    html += f"<tr><td style='padding:2px 6px'>{r.get('equipo_tag','')}</td><td style='padding:2px 6px'>{r.get('componente_es','')}</td><td style='padding:2px 6px;color:{c};font-weight:bold'>{s}</td></tr>"
+                    eq = r.get("equipo","").replace('"',"'")
+                    html += f"""<tr style='cursor:pointer' onclick='window.parent.postMessage({{type:"streamlit:setComponentValue",value:"{eq}"}}, "*")'>
+                        <td style='padding:3px 8px;color:#64b5f6;text-decoration:underline'>{r.get('equipo_tag','')}</td>
+                        <td style='padding:3px 6px'>{r.get('componente_es','')}</td>
+                        <td style='padding:3px 6px;color:{c};font-weight:bold'>{s}</td></tr>"""
                 return html
 
             popup_html = f"""
@@ -299,14 +310,29 @@ with tab_main:
             ).add_to(m)
 
             folium.Marker(
-                location=[info["lat"] + 0.6, info["lon"]],
+                location=[info["lat"], info["lon"]],
                 icon=folium.DivIcon(
-                    html=f'<div style="font-size:11px;font-weight:bold;color:#e0e7ef;text-shadow:1px 1px 2px #000">{cod}</div>',
-                    icon_size=(40, 16), icon_anchor=(20, 0)
+                    html=f'<div style="font-size:11px;font-weight:bold;color:#e0e7ef;text-shadow:1px 1px 2px #000;white-space:nowrap;margin-top:16px;margin-left:14px;">{cod}</div>',
+                    icon_size=(50, 20), icon_anchor=(0, 0)
                 )
             ).add_to(m)
 
         # Legend
+        # Remove white popup border via CSS injection
+        popup_css = """
+        <style>
+        .leaflet-popup-content-wrapper {
+            background: transparent !important;
+            border: none !important;
+            box-shadow: none !important;
+            padding: 0 !important;
+        }
+        .leaflet-popup-tip-container { display: none !important; }
+        .leaflet-popup-content { margin: 0 !important; }
+        </style>
+        """
+        m.get_root().html.add_child(folium.Element(popup_css))
+
         legend_html = """
         <div style="position:fixed;bottom:30px;left:30px;z-index:1000;background:#1a2535;
                     border:1px solid #2a3d52;border-radius:8px;padding:10px 14px;font-family:Arial">
@@ -319,7 +345,9 @@ with tab_main:
         m.get_root().html.add_child(folium.Element(legend_html))
 
         st.markdown("#### 🗺️ Estado de plantas — hacé clic en un punto para ver el detalle")
-        st_folium(m, width="100%", height=620, returned_objects=[])
+        map_data = st_folium(m, width="100%", height=620, returned_objects=["last_object_clicked_popup"])
+        # Note: direct tab switching via popup click requires JS bridge - 
+        # users can click equipment names in popup which highlights them in Detalle tab
 
         # Summary below map
         st.markdown("---")
