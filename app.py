@@ -263,16 +263,22 @@ st.markdown("---")
 # User info bar
 _uname = st.session_state.get("username", "")
 _role  = "Administrador" if st.session_state.get("is_admin") else "Operador"
-hcol1, hcol2 = st.columns([8, 1])
-with hcol2:
-    st.markdown(f"""
-    <div style="text-align:right;font-size:12px;color:#546e7a;padding-top:4px;">
-        👤 <b style="color:#90a4ae">{_uname}</b> · {_role}
-    </div>
-    """, unsafe_allow_html=True)
-    if st.button("🚪 Salir", key="logout_header"):
-        st.session_state.clear()
-        st.rerun()
+st.markdown(f"""
+<div style="display:flex;align-items:center;gap:16px;padding:2px 0 8px 0;">
+    <span style="font-size:13px;color:#90a4ae;">👤 <b style="color:#b0bec5">{_uname}</b> &nbsp;·&nbsp; {_role}</span>
+    <a href="?logout=1" target="_self"
+       style="font-size:12px;color:#546e7a;text-decoration:none;border:1px solid #2a3d52;
+              border-radius:6px;padding:3px 10px;background:#111d2c;">
+        🚪 Salir
+    </a>
+</div>
+""", unsafe_allow_html=True)
+
+# Handle logout via query param
+if st.query_params.get("logout") == "1":
+    st.session_state.clear()
+    st.query_params.clear()
+    st.rerun()
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 tab_main, tab_detalle, tab_kpi, tab_admin = st.tabs([
