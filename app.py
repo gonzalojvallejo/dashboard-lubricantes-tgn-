@@ -306,9 +306,11 @@ with tab_main:
                 fill_color=color,
                 fill_opacity=0.95,
                 weight=3,
+                popup=folium.Popup(popup_html, max_width=420),
                 tooltip=folium.Tooltip(
                     f"<b style='font-size:13px'>{cod} — {info['name']}</b><br>"
-                    f"<span style='color:{_sc}'>● {status}</span>",
+                    f"<span style='color:{_sc}'>● {status}</span><br>"
+                    f"<i style='font-size:10px;color:#90a4ae'>Hacé clic para ver equipos</i>",
                     sticky=True
                 ),
             ).add_to(m)
@@ -322,6 +324,17 @@ with tab_main:
             ).add_to(m)
 
         # Legend
+        # Remove white popup border
+        popup_css = """<style>
+        .leaflet-popup-content-wrapper {
+            background:transparent!important;border:none!important;
+            box-shadow:none!important;padding:0!important;border-radius:0!important;
+        }
+        .leaflet-popup-tip-container{display:none!important;}
+        .leaflet-popup-content{margin:0!important;}
+        </style>"""
+        m.get_root().html.add_child(folium.Element(popup_css))
+
         legend_html = """
         <div style="position:fixed;bottom:30px;left:30px;z-index:1000;background:#1a2535;
                     border:1px solid #2a3d52;border-radius:8px;padding:10px 14px;font-family:Arial">
