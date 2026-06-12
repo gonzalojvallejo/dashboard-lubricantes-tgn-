@@ -458,7 +458,7 @@ with tab_detalle:
             fc1, fc2, fc3, fc4 = st.columns(4)
             plantas    = sorted(dff["planta_cod"].dropna().unique())
             areas      = sorted(dff["area"].dropna().unique()) if "area" in dff.columns else []
-            estados    = ["ABNORMAL", "MARGINAL", "NORMAL"]
+            estados    = ["SEVERE", "ABNORMAL", "MARGINAL", "NORMAL"]
             componentes = sorted(dff["componente_es"].dropna().unique()) if "componente_es" in dff.columns else []
 
             sel_plantas = fc1.multiselect("Planta", plantas, default=plantas)
