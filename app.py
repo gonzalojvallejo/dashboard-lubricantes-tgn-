@@ -26,7 +26,7 @@ ADMIN_PASS    = "Admin"
 
 PLANT_COORDS = {
     "BAL": {"name": "Baldissera",     "lat": -33.532, "lon": -62.300},  # General Baldissera, Córdoba
-    "BEA": {"name": "Beazley",        "lat": -33.383, "lon": -65.383},  # Beazley, San Luis (RN146 km188)
+    "BEA": {"name": "Beazley",        "lat": -33.750, "lon": -66.645},  # Beazley, San Luis (RN146 km183)
     "BEL": {"name": "Leones",         "lat": -32.650, "lon": -62.283},  # San Jerónimo, Córdoba (RN9 km456)
     "COC": {"name": "Cochico",        "lat": -36.250, "lon": -66.930},  # Santa Isabel, La Pampa
     "DEA": {"name": "Dean Funes",     "lat": -30.424, "lon": -64.350},  # Dean Funes, Córdoba
@@ -217,15 +217,16 @@ st.markdown("""
 st.markdown("---")
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-# Check if redirected from map popup
+# Check if redirected from map popup click
 _qp = st.query_params
-if "equipo" in _qp and st.session_state.get("selected_equipo") != _qp["equipo"]:
-    st.session_state["selected_equipo"] = _qp["equipo"]
-    st.session_state["selected_tab"] = 1
+_eq_from_url = _qp.get("equipo", None)
+if _eq_from_url:
+    st.session_state["selected_equipo"] = _eq_from_url
+    st.query_params.clear()
 
 tab_main, tab_detalle, tab_kpi, tab_admin = st.tabs([
     "🗺️  Mapa de Plantas",
-    "🔎  Detalle por Equipo",
+    "🔎  Detalle por Equipo" + (" 🔍" if st.session_state.get("selected_equipo") else ""),
     "📊  KPIs y Métricas",
     "⚙️  Administración",
 ])
@@ -249,18 +250,17 @@ with tab_main:
             zoom_start=5,
             tiles=None
         )
-        # Base oscura con brillo mejorado
+        # Base oscura al 60% para mejor visibilidad
         folium.TileLayer(
             tiles="https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png",
             attr="© CartoDB © OpenStreetMap",
             opacity=0.55
         ).add_to(m)
-        # Solo labels de ciudades principales / capitales de provincia
+        # Labels de capitales/ciudades importantes (CartoDB)
         folium.TileLayer(
-            tiles="https://stamen-tiles-{s}.a.ssl.fastly.net/toner-labels/{z}/{x}/{y}.png",
-            attr="© Stamen Design",
-            opacity=0.5,
-            name="labels"
+            tiles="https://{s}.basemaps.cartocdn.com/rastertiles/voyager_only_labels/{z}/{x}/{y}{r}.png",
+            attr="© CartoDB",
+            opacity=0.7
         ).add_to(m)
 
         for cod, info in PLANT_COORDS.items():
@@ -279,11 +279,16 @@ with tab_main:
                 for _, r in rows.iterrows():
                     s = r.get("overall", "")
                     c = {"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800","SEVERE":"#d32f2f"}.get(s,"#aaa")
-                    eq = str(r.get("equipo","")).replace('"',"'").replace(" ","%20")
-                    current_url = "?"
-                    html += f"""<tr style='cursor:pointer' onclick='window.open(window.location.origin+window.location.pathname+"?equipo={eq}","_self")'>
-                        <td style='padding:3px 8px;color:#64b5f6;text-decoration:underline;cursor:pointer'>{r.get('equipo_tag','')}</td>
-                        <td style='padding:3px 6px'>{r.get('componente_es','')}</td>
+                    eq = str(r.get("equipo","")).replace('"',"'")
+                    eq_url = eq.replace(" ", "%20")
+                    html += f"""<tr>
+                        <td style='padding:3px 8px'>
+                          <a href='?equipo={eq_url}' target='_self'
+                             style='color:#64b5f6;text-decoration:underline;font-weight:500'>
+                            {r.get('equipo_tag','')}
+                          </a>
+                        </td>
+                        <td style='padding:3px 6px;color:#b0bec5'>{r.get('componente_es','')}</td>
                         <td style='padding:3px 6px;color:{c};font-weight:bold'>{s}</td></tr>"""
                 return html
 
