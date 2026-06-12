@@ -16,13 +16,57 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
+# ── Login wall ──────────────────────────────────────────────────────────────────
+def check_login():
+    if st.session_state.get("authenticated"):
+        return True
+
+    # Center the login form
+    _, col, _ = st.columns([1.5, 2, 1.5])
+    with col:
+        st.markdown("""
+        <div style="text-align:center; padding: 40px 0 20px 0;">
+            <img src="https://i.imgur.com/RDfxCkp.jpg" width="120"
+                 style="display:block;margin:0 auto 16px auto;">
+            <div style="font-size:1.6rem;font-weight:700;color:#e8edf2;">
+                Dashboard · Análisis de Lubricantes
+            </div>
+            <div style="font-size:0.9rem;color:#78909c;margin-top:4px;">
+                Transportadora de Gas del Norte S.A.
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        with st.form("login_wall"):
+            st.markdown("#### Iniciar sesión")
+            user = st.text_input("Usuario", placeholder="Ingresá tu usuario")
+            pwd  = st.text_input("Contraseña", type="password", placeholder="Ingresá tu contraseña")
+            submitted = st.form_submit_button("Ingresar", use_container_width=True)
+
+            if submitted:
+                try:
+                    users = st.secrets["users"]
+                    if user in users and users[user] == pwd:
+                        st.session_state["authenticated"] = True
+                        st.session_state["username"] = user
+                        st.session_state["is_admin"] = (user.lower() == "admin")
+                        st.rerun()
+                    else:
+                        st.error("Usuario o contraseña incorrectos.")
+                except Exception as e:
+                    st.error(f"Error de configuración: {e}")
+    return False
+
+if not check_login():
+    st.stop()
+
 # ── Constantes ─────────────────────────────────────────────────────────────────
 GITHUB_USER   = "gonzalojvallejo"
 GITHUB_REPO   = "dashboard-lubricantes-tgn-"
 GITHUB_BRANCH = "main"
 DB_FILE       = "database.csv"
 ADMIN_USER    = "Admin"
-ADMIN_PASS    = "Admin123"
+ADMIN_PASS    = "Admin"
 
 PLANT_COORDS = {
     "BAL": {"name": "Baldissera",     "lat": -33.532, "lon": -62.300},  # General Baldissera, Córdoba
@@ -215,6 +259,20 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 st.markdown("---")
+
+# User info bar
+_uname = st.session_state.get("username", "")
+_role  = "Administrador" if st.session_state.get("is_admin") else "Operador"
+hcol1, hcol2 = st.columns([8, 1])
+with hcol2:
+    st.markdown(f"""
+    <div style="text-align:right;font-size:12px;color:#546e7a;padding-top:4px;">
+        👤 <b style="color:#90a4ae">{_uname}</b> · {_role}
+    </div>
+    """, unsafe_allow_html=True)
+    if st.button("🚪 Salir", key="logout_header"):
+        st.session_state.clear()
+        st.rerun()
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
 tab_main, tab_detalle, tab_kpi, tab_admin = st.tabs([
@@ -706,21 +764,9 @@ with tab_kpi:
 # TAB D — ADMINISTRACIÓN
 # ══════════════════════════════════════════════════════════════════════
 with tab_admin:
-    if "admin_logged" not in st.session_state:
-        st.session_state["admin_logged"] = False
-
-    if not st.session_state["admin_logged"]:
-        st.markdown("### 🔐 Acceso restringido")
-        with st.form("login_form"):
-            user = st.text_input("Usuario")
-            pwd  = st.text_input("Contraseña", type="password")
-            submitted = st.form_submit_button("Ingresar")
-            if submitted:
-                if user == ADMIN_USER and pwd == ADMIN_PASS:
-                    st.session_state["admin_logged"] = True
-                    st.rerun()
-                else:
-                    st.error("Usuario o contraseña incorrectos.")
+    if not st.session_state.get("is_admin"):
+        st.warning("⚠️ No tenés permisos para acceder a esta sección.")
+        st.stop()
     else:
         st.markdown("### ⚙️ Panel de Administración")
         st.success("Sesión iniciada como **Admin**")
@@ -779,7 +825,7 @@ with tab_admin:
         st.markdown("---")
         col_logout, _ = st.columns([1, 4])
         if col_logout.button("🚪 Cerrar sesión"):
-            st.session_state["admin_logged"] = False
+            st.session_state.clear()
             st.rerun()
 
 # ── Footer ─────────────────────────────────────────────────────────────────────
