@@ -217,16 +217,9 @@ st.markdown("""
 st.markdown("---")
 
 # ── Tabs ───────────────────────────────────────────────────────────────────────
-# Check if redirected from map popup click
-_qp = st.query_params
-_eq_from_url = _qp.get("equipo", None)
-if _eq_from_url:
-    st.session_state["selected_equipo"] = _eq_from_url
-    st.query_params.clear()
-
 tab_main, tab_detalle, tab_kpi, tab_admin = st.tabs([
     "🗺️  Mapa de Plantas",
-    "🔎  Detalle por Equipo" + (" 🔍" if st.session_state.get("selected_equipo") else ""),
+    "🔎  Detalle por Equipo",
     "📊  KPIs y Métricas",
     "⚙️  Administración",
 ])
@@ -279,15 +272,8 @@ with tab_main:
                 for _, r in rows.iterrows():
                     s = r.get("overall", "")
                     c = {"NORMAL":"#4caf50","MARGINAL":"#f44336","ABNORMAL":"#ff9800","SEVERE":"#d32f2f"}.get(s,"#aaa")
-                    eq = str(r.get("equipo","")).replace('"',"'")
-                    eq_url = eq.replace(" ", "%20")
                     html += f"""<tr>
-                        <td style='padding:3px 8px'>
-                          <a href='?equipo={eq_url}' target='_self'
-                             style='color:#64b5f6;text-decoration:underline;font-weight:500'>
-                            {r.get('equipo_tag','')}
-                          </a>
-                        </td>
+                        <td style='padding:3px 8px;color:#e0e7ef'>{r.get('equipo_tag','')}</td>
                         <td style='padding:3px 6px;color:#b0bec5'>{r.get('componente_es','')}</td>
                         <td style='padding:3px 6px;color:{c};font-weight:bold'>{s}</td></tr>"""
                 return html
@@ -359,7 +345,37 @@ with tab_main:
         m.get_root().html.add_child(folium.Element(legend_html))
 
         st.markdown("#### 🗺️ Estado de plantas — hacé clic en un punto para ver el detalle")
-        map_data = st_folium(m, width="100%", height=620, returned_objects=["last_object_clicked_popup"])
+        map_data = st_folium(m, width="100%", height=620, returned_objects=["last_object_clicked_tooltip"])
+
+        # Detect plant click via tooltip
+        if map_data and map_data.get("last_object_clicked_tooltip"):
+            tooltip_val = map_data["last_object_clicked_tooltip"]
+            # tooltip format is "COD — STATUS"
+            if " — " in str(tooltip_val):
+                clicked_cod = str(tooltip_val).split(" — ")[0].strip()
+                if clicked_cod != st.session_state.get("clicked_plant"):
+                    st.session_state["clicked_plant"] = clicked_cod
+                    st.session_state["selected_equipo"] = None
+
+        # Show plant equipment selector below map
+        clicked_plant = st.session_state.get("clicked_plant")
+        if clicked_plant and df_global is not None:
+            plant_equips = get_latest_per_equipment(df_global)
+            plant_equips = plant_equips[plant_equips["planta_cod"] == clicked_plant]
+            if not plant_equips.empty:
+                st.markdown(f"**Seleccioná un equipo de {clicked_plant}:**")
+                eq_options = plant_equips["equipo"].tolist()
+                eq_labels = plant_equips["equipo_tag"].tolist()
+                cols_eq = st.columns(min(len(eq_options), 4))
+                for i, (eq, lbl) in enumerate(zip(eq_options, eq_labels)):
+                    row = plant_equips[plant_equips["equipo"] == eq].iloc[0]
+                    s = row["overall"]
+                    color = STATUS_COLOR.get(s, "#555")
+                    with cols_eq[i % 4]:
+                        if st.button(f"{lbl}", key=f"eq_btn_{eq}",
+                                     help=f"{row.get('componente_es','')} — {s}"):
+                            st.session_state["selected_equipo"] = eq
+                            st.rerun()
 
         # Show equipment detail below map when selected
         _sel = st.session_state.get("selected_equipo")
